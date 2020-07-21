@@ -1,4 +1,18 @@
-
+export class Component {
+  constructor() {
+    this.children = [];
+  }
+  setAttribute(name, value) {
+    this[name] = value;
+  }
+  mountTo(parent) {
+    let vdom = this.render();
+    vdom.mountTo(parent);
+  }
+  appendChild(vchild) {
+    this.children.push(vchild);
+  }
+}
 class ElementWrapper {
   constructor(type) {
     this.root = document.createElement(type);
@@ -24,27 +38,13 @@ class TextWrapper {
   
 }
 
-export class Component {
-  constructor() {
-    this.children = [];
-  }
-  setAttribute(name, value) {
-    this[name] = value;
-  }
-  mountTo(parent) {
-    let vdom = this.render();
-    vdom.mountTo(parent);
-  }
-  appendChild(vchild) {
-    this.children.push(vchild);
-  }
-}
+
 
 const ToyReact = {
   createElement(type, attrbutes, ...children) {
     let element;
     if (typeof type === 'string') {
-      element = new ElementWrapper(type)
+      element = new ElementWrapper(type);
     } else {
       element = new type;
     }
@@ -79,7 +79,8 @@ const ToyReact = {
   render(vdom, element) {
     vdom.mountTo(element);
     // element.appendChild(vdom);
-  }
+  },
+  Component,
 }
 
 export default ToyReact;
