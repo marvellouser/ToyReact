@@ -1,6 +1,6 @@
 import ToyReact, { Component } from './ToyReact';
 console.log(ToyReact, 'jjjjjjjjj', ToyReact.Component === Component)
-class MyComponent extends Component{
+class MyComponent extends Component {
   render() {
     return (
       <div>
@@ -26,6 +26,6 @@ class SubComponent extends Component {
   }
 }
 const a = <MyComponent>
-  
+
 </MyComponent>
 ToyReact.render(a, document.body);
