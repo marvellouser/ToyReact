@@ -3,13 +3,13 @@ class Square extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      value: '',
+      value: props.value,
     }
   }
   render() {
     return (
       <button className="square" onClick={() => { console.log('click'); this.setState({ value: this.state.value === 'X' ? 'O' : 'X' }) }}>
-        {this.state.value ? this.state.value : ''}
+        {this.state.value}
       </button>
     );
   }

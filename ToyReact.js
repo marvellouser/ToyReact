@@ -3,11 +3,13 @@ export class Component {
     this.children = [];
     this.props = Object.create(null);
   }
+
   setAttribute(name, value) {
     console.log(name, 'value')
     this.props[name] = value;
     this[name] = value;
   }
+
   mountTo(range) {
     this.range = range;
     this.update();
@@ -91,8 +93,6 @@ class TextWrapper {
 
 }
 
-
-
 const ToyReact = {
   createElement(type, attrbutes, ...children) {
     let element;
@@ -104,8 +104,6 @@ const ToyReact = {
     } else {
       element = new type({ ...attrbutes });
     }
-
-
 
     let insertChildren = (children) => {
       for (let child of children) {
@@ -127,7 +125,6 @@ const ToyReact = {
     }
 
     insertChildren(children);
-
     return element;
   },
   render(vdom, element) {
