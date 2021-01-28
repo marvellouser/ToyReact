@@ -1,239 +1,243 @@
 
-let childSymbol = Symbol('children');
-export class Component {
-  constructor(props) {
-    this.children = [];
-    this.props = Object.create(null);
-  }
 
-  setAttribute(name, value) {
-    this.props[name] = value;
-    this[name] = value;
-  }
 
-  mountTo(range) {
-    this.range = range;
-    this.update();
-  }
 
-  get vdom() {
-    return this.render().vdom;
-  }
-
-  update() {
-    let vdom = this.vdom
-    if (this.oldVdom) {
-      let isSameNode = (node1, node2) => {
-        if (node1.type !== node2.type) {
-          return false;
-        }
-        for (let name in node1.props) {
-          const node1Value = node1.props[name];
-          const node2Value = node2.props[name];
-          if (typeof node1Value === 'object' && typeof node2Value === 'object' && JSON.stringify(node1Value) && JSON.stringify(node2Value)) {
-            continue;
-          }
-          if (node1Value !== node2Value) {
-            return false;
-          }
-        }
-        if (Object.keys(node1.props).length != Object.keys(node2.props).length) {
-          return false;
-        }
-        return true;
-      }
-
-      let isSameTree = (node1, node2) => {
-        if (!isSameNode(node1, node2) || node1.children.length != node2.children.length) return false;
-        for (let i = 0; i < node1.children.length; i++) {
-          if (!isSameTree(node1.children[i], node2.children[i])) {
-            return false;
-          }
-        }
-        return true;
-      }
-
-      let replace = (newTree, oldTree) => {
-        if (isSameTree(newTree, oldTree)) return;
-        if (!isSameNode(newTree, oldTree)) {
-          newTree.mountTo(oldTree.range);
-        } else {
-          for (let i = 0; i < newTree.children.length; i++) {
-            replace(newTree.children[i], oldTree.children[i]);
-          }
-        }
-      }
-      replace(vdom, this.oldVdom);
-    } else {
-      vdom.mountTo(this.range);
+function createTextElement(text) {
+  return {
+    type: 'TEXT_ELEMENT',
+    props: {
+      nodeValue: text,
+      children: [],
     }
-
-    this.oldVdom = vdom;
-  }
-
-  setState(state) {
-    if (typeof state !== 'object' && typeof state !== 'function') return;
-    let merge = (oldState, newState) => {
-      for (let p in newState) {
-        if (typeof newState[p] === 'object') {
-          if (typeof oldState[p] !== 'object') {
-            oldState[p] = {};
-          }
-          merge(oldState[p], newState[p]);
-        } else {
-          oldState[p] = newState[p];
-        }
-      }
-    }
-    if (!this.state && state) {
-      this.state = {};
-    }
-    merge(this.state, state);
-    this.update();
-  }
-
-  appendChild(vchild) {
-    this.children.push(vchild);
-  }
-}
-class ElementWrapper {
-  constructor(type) {
-    this.type = type;
-    this.props = Object.create(null);
-    this[childSymbol] = [];
-    this.children = [];
-    // this.root = document.createElement(type);
-  }
-  setAttribute(name, value) {
-    // if (name.match(/^on([\s\S]+)$/)) {
-    //   let eventName = RegExp.$1.replace(/^[\s\S]/, (s) => s.toLowerCase())
-    //   this.root.addEventListener(eventName, value);
-    // }
-    // if (name === 'className') {
-    //   name = 'class';
-    // }
-    // this.root.setAttribute(name, value);
-    this.props[name] = value;
-  }
-  appendChild(vchild) {
-    // let range = document.createRange();
-    // if (this.root.children.length) {
-    //   range.setStartAfter(this.root.lastChild);
-    //   range.setEndAfter(this.root.lastChild);
-    // } else {
-    //   range.setStart(this.root, 0);
-    //   range.setEnd(this.root, 0);
-    // }
-    // vchild.mountTo(range);
-    this[childSymbol].push(vchild);
-    this.children.push(vchild.vdom);
-  }
-
-  get vdom() {
-    return this;
-  }
-
-  mountTo(range) {
-    this.range = range;
-    let placeholder = document.createComment('placeholder');
-    let endRange = document.createRange();
-    endRange.setStart(range.endContainer, range.endOffset);
-    endRange.setEnd(range.endContainer, range.endOffset);
-    endRange.insertNode(placeholder);
-    range.deleteContents();
-    let element = document.createElement(this.type);
-    for (let name in this.props) {
-      let value = this.props[name];
-      if (name.match(/^on([\s\S]+)$/)) {
-        let eventName = RegExp.$1.replace(/^[\s\S]/, (s) => s.toLowerCase())
-        element.addEventListener(eventName, value);
-      }
-      if (name === 'className') {
-        name = 'class';
-      }
-      element.setAttribute(name, value);
-    }
-
-    for (let child of this.children) {
-      let range = document.createRange();
-      if (element.children.length) {
-        range.setStartAfter(element.lastChild);
-        range.setEndAfter(element.lastChild);
-      }
-      else {
-        range.setStart(element, 0);
-        range.setEnd(element, 0);
-      }
-      child.mountTo(range);
-    }
-    range.insertNode(element);
   }
 }
 
-class TextWrapper {
-  constructor(content) {
-    this.root = document.createTextNode(content);
-    this.type = '#text';
-    this.children = [];
-    this.props = Object.create(null);
+function createElement(type, props, ...children) {
+  return {
+    type,
+    props: {
+      ...props,
+      children: children.map(child => 
+        typeof child === 'object'
+        ? child
+        : createTextElement(child) 
+      ),
+    }
   }
-  mountTo(range) {
-    this.range = range;
-    range.deleteContents();
-    range.insertNode(this.root);
-  }
-
-  get vdom() {
-    return this;
-  }
-
 }
 
-const ToyReact = {
-  createElement(type, attrbutes, ...children) {
-    let element;
-    if (typeof type === 'string') {
-      element = new ElementWrapper(type);
-    } else {
-      element = new type({ ...attrbutes });
+function createDom(fiber) {
+  const dom = fiber.type == 'TEXT_ELEMENT' ? document.createTextNode('') : document.createElement(fiber.type);
+  // const isProperty = key => key !== 'children';
+  // Object.keys(fiber.props).filter(isProperty).forEach(key => {
+  //   dom[key] = fiber.props[key];
+  // })
+  // fiber.props.children.forEach(child => {
+  //   render(child, dom);
+  // })
+  updateDom(dom, {}, fiber.props);
+  return dom;
+}
+
+
+const isEvent = key => key.startsWith("on");
+
+const isProperty = key => key !== "children" && !isEvent(key);
+
+const isNew = (prev, next) => key => prev[key] !== next[key];
+
+const isGone = (prev, next) => key => !(key in next);
+
+function updateDom(dom, prevProps, nextProps){
+ //Remove old or changed event listeners
+ Object.keys(prevProps)
+  .filter(isEvent)
+  .filter(
+    key =>
+      !(key in nextProps) ||
+      isNew(prevProps, nextProps)(key)
+  )
+  .forEach(name => {
+    const eventType = name
+      .toLowerCase()
+      .substring(2)
+    dom.removeEventListener(
+      eventType,
+      prevProps[name]
+    )
+  })
+
+  // Remove old properties
+  Object.keys(prevProps)
+  .filter(isProperty)
+  .filter(isGone(prevProps, nextProps))
+  .forEach(name => {
+    dom[name] = ""
+  })
+
+  // Set new or changed properties
+  Object.keys(nextProps)
+  .filter(isProperty)
+  .filter(isNew(prevProps, nextProps))
+  .forEach(name => {
+    dom[name] = nextProps[name]
+  })
+
+  // Add event listeners
+  Object.keys(nextProps)
+  .filter(isEvent)
+  .filter(isNew(prevProps, nextProps))
+  .forEach(name => {
+    const eventType = name
+      .toLowerCase()
+      .substring(2)
+    dom.addEventListener(
+      eventType,
+      nextProps[name]
+    )
+  })
+}
+
+function commitRoot(){
+  deletions.forEach(commitWork);
+  commitWork(wipRoot.child);
+  currentRoot = wipRoot
+  wipRoot = null;
+};
+
+function commitWork(fiber) {
+  if (!fiber) {
+    return
+  }
+
+  const domParent = fiber.parent.dom;
+  if (
+    fiber.effectTag === "PLACEMENT" &&
+    fiber.dom != null
+  ) {
+    domParent.appendChild(fiber.dom);
+  } else if (
+    fiber.effectTag === "UPDATE" &&
+    fiber.dom != null
+  ) {
+    updateDom(
+      fiber.dom,
+      fiber.alternate.props,
+      fiber.props
+    );
+  } else if (fiber.effectTag === "DELETION") {
+    domParent.removeChild(fiber.dom);
+  }
+
+  commitWork(fiber.child);
+  commitWork(fiber.sibling);
+}
+
+function render(element, container) {
+  wipRoot = {
+    dom: container,
+    props: {
+      children: [element],
+    },
+    alternate: currentRoot,
+  }
+  deletions = []
+  nextUnitOfWork = wipRoot;
+}
+
+let nextUnitOfWork  = null;
+let wipRoot = null;
+let currentRoot = null;
+let deletions = null;
+
+function workLoop(deadline) {
+  let shouldYield = false
+  while (nextUnitOfWork && !shouldYield) {
+    nextUnitOfWork = performUnitOfWork(
+      nextUnitOfWork
+    )
+    shouldYield = deadline.timeRemaining() < 1
+  }
+  if (!nextUnitOfWork && wipRoot) {
+    console.log(wipRoot, 'wipRootwipRoot')
+    commitRoot()
+  }
+
+  requestIdleCallback(workLoop)
+}
+
+requestIdleCallback(workLoop);
+
+function performUnitOfWork(fiber) {
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber)
+  }
+  const elements = fiber.props.children;
+  reconcileChildren(fiber, elements);
+  if (fiber.child) {
+    return fiber.child;
+  }
+  let nextFiber = fiber
+  while (nextFiber) {
+    if (nextFiber.sibling) {
+      return nextFiber.sibling;
     }
-    for (let name in attrbutes) {
-      element.setAttribute(name, attrbutes[name]);
-    }
-    let insertChildren = (children) => {
-      for (let child of children) {
-        if (Array.isArray(child)) {
-          insertChildren(child);
-        } else {
-          if (!(child instanceof Component)
-            && !(child instanceof ElementWrapper)
-            && !(child instanceof TextWrapper)
-          ) {
-            child = String(child)
-          }
-          if (typeof child === 'string') {
-            child = new TextWrapper(child);
-          }
-          element.appendChild(child);
-        }
+    nextFiber = nextFiber.parent;
+  }
+}
+
+function reconcileChildren(wipFiber, elements) {
+  let index = 0;
+  let oldFiber = wipFiber.alternate && wipFiber.alternate.child
+  let prevSibling = null
+  while(index < elements.length || oldFiber != null) {
+    let element = elements[index];
+    let newFiber = null;
+    const sameType = oldFiber && element && element.type == oldFiber.type;
+    if (sameType) {
+      newFiber = {
+        type: oldFiber.type,
+        props: element.props,
+        dom: oldFiber.dom,
+        parent: wipFiber,
+        alternate: oldFiber,
+        effectTag: "UPDATE",
       }
     }
 
-    insertChildren(children);
-    return element;
-  },
-  render(vdom, element) {
-    let range = document.createRange();
-    if (element.children.length) {
-      range.setStartAfter(element.lastChild);
-      range.setEndAfter(element.lastChild);
-    } else {
-      range.setStart(element, 0);
-      range.setEnd(element, 0);
+    if (element && !sameType) {
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: null,
+        parent: wipFiber,
+        alternate: null,
+        effectTag: "PLACEMENT",
+      }
     }
-    vdom.mountTo(range);
-  },
-  Component,
+
+    if (oldFiber && !sameType) {
+      oldFiber.effectTag = "DELETION";
+      deletions.push(oldFiber);
+    }
+
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling;
+    }
+    if (index === 0) {
+      wipFiber.child = newFiber;
+    } else if (element) {
+      prevSibling.sibling = newFiber;
+    }
+
+    prevSibling = newFiber;
+    index++;
+  }
+
 }
 
-export default ToyReact;
+export default {
+  createElement,
+  render,
+}
+
